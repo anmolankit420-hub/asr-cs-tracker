@@ -171,12 +171,6 @@
             font-weight: bold;
         }
 
-        /* Conditional Formatting Highlight Class */
-        .highlight-cell {
-            background-color: #fca5a5 !important; /* Light Red Highlight */
-            font-weight: bold;
-        }
-
         /* Admin Controls Section */
         .admin-controls-grid {
             display: grid;
@@ -489,6 +483,42 @@
             return s;
         }
 
+        // Helper to convert percentage strings like "53.33%" to numeric numbers for color scaling
+        function parsePercentToNumber(val) {
+            if (!val) return 0;
+            let s = String(val).replace('%', '').trim();
+            let num = Number(s);
+            if (isNaN(num)) return 0;
+            // If value was stored as decimal like 0.53, convert to 53
+            if (num > 0 && num <= 1 && !String(val).includes('%')) {
+                num = num * 100;
+            }
+            return num;
+        }
+
+        // Function to calculate smooth Red-Yellow-Green gradient background color
+        function getColorScaleStyle(val, min, max) {
+            if (min === max) return 'background-color: #fef08a;'; // default yellow if all same
+            let ratio = (val - min) / (max - min); // 0 to 1
+            ratio = Math.max(0, Math.min(1, ratio)); // clamp between 0 and 1
+
+            let r, g, b;
+            if (ratio < 0.5) {
+                // Red to Yellow transition (ratio from 0 to 0.5)
+                let subRatio = ratio * 2;
+                r = 254;
+                g = Math.round(200 + 40 * subRatio); // moves from light red towards yellow
+                b = 150;
+            } else {
+                // Yellow to Green transition (ratio from 0.5 to 1)
+                let subRatio = (ratio - 0.5) * 2;
+                r = Math.round(254 - 130 * subRatio);
+                g = 240;
+                b = Math.round(150 - 50 * subRatio);
+            }
+            return `background-color: rgb(${r}, ${g}, ${b}); font-weight: bold;`;
+        }
+
         function calculateGrandTotal() {
             let totalSum = 0;
             let citySum = 0;
@@ -524,7 +554,25 @@
                 return;
             }
 
+            // Find min and max for color scaling for both columns
+            let utilValues = trackingData.map(r => parsePercentToNumber(formatPercentValue(r.util)));
+            let pocValues = trackingData.map(r => parsePercentToNumber(formatPercentValue(r.poc)));
+
+            let minUtil = Math.min(...utilValues);
+            let maxUtil = Math.max(...utilValues);
+            let minPoc = Math.min(...pocValues);
+            let maxPoc = Math.max(...pocValues);
+
             trackingData.forEach(row => {
+                let formattedUtil = formatPercentValue(row.util);
+                let formattedPoc = formatPercentValue(row.poc);
+
+                let utilNum = parsePercentToNumber(formattedUtil);
+                let pocNum = parsePercentToNumber(formattedPoc);
+
+                let utilStyle = getColorScaleStyle(utilNum, minUtil, maxUtil);
+                let pocStyle = getColorScaleStyle(pocNum, minPoc, maxPoc);
+
                 const tr = document.createElement('tr');
                 tr.innerHTML = `
                     <td style="text-align: left; font-weight: 500;">${row.name}</td>
@@ -532,8 +580,8 @@
                     <td>${row.city}</td>
                     <td>${row.sobBooking}</td>
                     <td>${row.nonSob}</td>
-                    <td class="highlight-cell" style="font-weight: bold;">${formatPercentValue(row.util)}</td>
-                    <td class="highlight-cell" style="font-weight: bold;">${formatPercentValue(row.poc)}</td>
+                    <td style="${utilStyle}">${formattedUtil}</td>
+                    <td style="${pocStyle}">${formattedPoc}</td>
                 `;
                 tbody.appendChild(tr);
             });
