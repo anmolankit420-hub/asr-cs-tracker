@@ -5,9 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ASR - CS TRACKER</title>
     
-    <!-- Firebase SDKs -->
-    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>
     <!-- SheetJS for Excel/CSV parsing -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 
@@ -240,14 +237,6 @@
             background-color: var(--danger-hover);
         }
 
-        .btn-warning {
-            background-color: #d97706;
-            color: white;
-        }
-        .btn-warning:hover {
-            background-color: #b45309;
-        }
-
         .edit-input {
             width: 75px;
             padding: 4px;
@@ -270,6 +259,13 @@
             font-size: 0.9rem;
             color: #991b1b;
         }
+
+        #loading-indicator {
+            text-align: center;
+            padding: 20px;
+            font-weight: 600;
+            color: var(--primary);
+        }
     </style>
 </head>
 <body>
@@ -288,7 +284,7 @@
     <div class="container">
         <header>
             <h1>ASR - CS TRACKER</h1>
-            <p>Live Performance & Hourly Tracking Dashboard</p>
+            <p>Live Performance & Google Sheet Connected Dashboard</p>
 
             <!-- Navigation Tabs -->
             <div class="nav-tabs">
@@ -300,8 +296,9 @@
         <!-- Team Leader Panel -->
         <div id="tl-panel" class="panel active">
             <h2>Team Leader Performance Tracker</h2>
+            <div id="loading-indicator">Google Sheet se data load ho raha hai...</div>
             <div class="table-responsive">
-                <table class="styled-table" id="tl-table">
+                <table class="styled-table" id="tl-table" style="display:none;">
                     <thead>
                         <tr>
                             <th>Team Leader</th>
@@ -322,14 +319,10 @@
 
         <!-- Admin Panel -->
         <div id="admin-panel" class="panel">
-            <h2>Admin Management & Data Sync</h2>
+            <h2>Admin Management & Google Sheet Sync</h2>
             
             <div class="warning-notice">
-                ⚠️ <strong>Strict Rule:</strong> Naya data paste ya upload karne se pehle <strong>"Clear All Old Data"</strong> button dabakar purana data hatana zaroori hai. Bina purana data delete kiye naya data update nahi hoga!
-            </div>
-
-            <div style="margin-bottom: 20px;">
-                <button class="btn btn-warning" onclick="clearAllData()">🗑️ Clear All Old Data (Must before new upload/paste)</button>
+                ⚠️ <strong>Note:</strong> Jab aap naya data update ya save karenge, toh woh direct Google Sheet par sync ho jayega.
             </div>
 
             <div class="admin-controls-grid">
@@ -337,20 +330,20 @@
                 <div class="control-card">
                     <label>⚡ Quick Paste Excel Data:</label>
                     <textarea id="excel-paste-box" placeholder="Yahan Excel se pura data copy karke direct paste karein..."></textarea>
-                    <button class="btn" onclick="processPastedData()">Parse & Update Data (Paste)</button>
+                    <button class="btn" onclick="processPastedData()">Parse & Sync Data (Paste)</button>
                 </div>
 
                 <!-- Option 2: Upload File (Excel / CSV) -->
                 <div class="control-card">
                     <label>📁 Upload Excel / CSV File:</label>
                     <input type="file" id="data-file-input" accept=".xlsx, .xls, .csv">
-                    <button class="btn" style="background-color: var(--success);" onclick="processFileUpload()">Upload & Fetch Data (File)</button>
+                    <button class="btn" style="background-color: var(--success);" onclick="processFileUpload()">Upload & Sync File</button>
                 </div>
             </div>
 
-            <!-- Manual Add Single Row / Team Leader -->
+            <!-- Manual Add Single Row -->
             <div class="control-card" style="margin-bottom: 20px;">
-                <label>➕ Add New Team Leader Row Manually:</label>
+                <label>➕ Add New Team Leader Row:</label>
                 <div style="display: flex; gap: 10px; flex-wrap: wrap;">
                     <input type="text" id="new-name" placeholder="Team Leader Name" style="flex: 2; margin-bottom:0;">
                     <input type="number" id="new-total" placeholder="Total" style="flex: 1; margin-bottom:0;">
@@ -384,54 +377,59 @@
                 </table>
             </div>
 
-            <button class="btn" style="margin-top: 15px; background-color: var(--success);" onclick="saveAdminChanges()">Save All Changes</button>
+            <button class="btn" style="margin-top: 15px; background-color: var(--success);" onclick="saveAdminChanges()">Save All Changes to Google Sheet</button>
         </div>
     </div>
 
     <script>
-        // ================= FIREBASE CONFIGURATION =================
-        const firebaseConfig = {
-            apiKey: "AIzaSyD-YOUR-API-KEY-HERE",
-            authDomain: "asr-cs-tracker.firebaseapp.com",
-            databaseURL: "https://asr-cs-tracker-default-rtdb.firebaseio.com",
-            projectId: "asr-cs-tracker",
-            storageBucket: "asr-cs-tracker.appspot.com",
-            messagingSenderId: "1234567890",
-            appId: "1:1234567890:web:abcdef"
-        };
-
-        // Initialize Firebase
-        firebase.initializeApp(firebaseConfig);
-        const db = firebase.database();
+        // ================= GOOGLE APPS SCRIPT WEB APP URL =================
+        const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbzlb0PGsyvPZvXozZnYL0oVLXfT9Is45BmMXiFnByYoB-VFBC_PuDuiEap1b0eNrV_vuQ/exec";
 
         let trackingData = [];
 
-        const defaultData = [
-            { name: "Simran Prasad", total: 61, city: 54, sobBooking: 33, nonSob: 21, util: "61.11%", poc: "24.24%" },
-            { name: "Md Noor Ali", total: 162, city: 149, sobBooking: 94, nonSob: 55, util: "63.09%", poc: "26.60%" },
-            { name: "Jasmine Baxla", total: 244, city: 225, sobBooking: 149, nonSob: 76, util: "66.22%", poc: "26.17%" },
-            { name: "Gulapsa Perween", total: 246, city: 226, sobBooking: 160, nonSob: 66, util: "70.80%", poc: "26.25%" },
-            { name: "Azhar Ansari", total: 8, city: 7, sobBooking: 5, nonSob: 2, util: "71.43%", poc: "20.00%" },
-            { name: "Prakash Kumar", total: 77, city: 75, sobBooking: 54, nonSob: 21, util: "72.00%", poc: "20.37%" },
-            { name: "Kishan Barnwal", total: 148, city: 133, sobBooking: 100, nonSob: 33, util: "75.19%", poc: "25.00%" },
-            { name: "Neeraj Yadav", total: 92, city: 88, sobBooking: 67, nonSob: 21, util: "76.14%", poc: "25.37%" }
-        ];
+        // Page load hone par Google Sheet se data fetch karna
+        window.onload = function() {
+            fetchDataFromSheet();
+        };
 
-        // Real-time synchronization from Firebase Database
-        db.ref('tracker').on('value', (snapshot) => {
-            const data = snapshot.val();
-            if (data && data.trackingData) {
-                trackingData = data.trackingData;
-            } else {
-                trackingData = defaultData;
-                syncToFirebase();
-            }
-            renderAll();
-        });
+        function fetchDataFromSheet() {
+            fetch(WEB_APP_URL)
+                .then(response => response.json())
+                .then(data => {
+                    trackingData = data || [];
+                    document.getElementById('loading-indicator').style.display = 'none';
+                    document.getElementById('tl-table').style.display = 'table';
+                    renderAll();
+                })
+                .catch(err => {
+                    console.error(err);
+                    document.getElementById('loading-indicator').innerHTML = "❌ Data load karne mein error aayi. URL check karein.";
+                });
+        }
 
-        function syncToFirebase() {
-            db.ref('tracker').set({
-                trackingData: trackingData
+        function saveToSheet() {
+            document.getElementById('loading-indicator').style.display = 'block';
+            document.getElementById('loading-indicator').innerHTML = "Google Sheet par data save ho raha hai...";
+
+            fetch(WEB_APP_URL, {
+                method: "POST",
+                mode: "no-cors",
+                headers: {
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify(trackingData)
+            })
+            .then(() => {
+                setTimeout(() => {
+                    document.getElementById('loading-indicator').style.display = 'none';
+                    alert('Data successfully Google Sheet par save ho gaya hai!');
+                    fetchDataFromSheet();
+                }, 1500);
+            })
+            .catch(err => {
+                console.error(err);
+                alert('Save karne mein error aayi.');
+                document.getElementById('loading-indicator').style.display = 'none';
             });
         }
 
@@ -445,10 +443,6 @@
         }
 
         function switchTab(tabName, event) {
-            activateTLView();
-        }
-
-        function activateTLView() {
             document.getElementById('tl-panel').classList.add('active');
             document.getElementById('admin-panel').classList.remove('active');
             const buttons = document.querySelectorAll('.tab-btn');
@@ -480,14 +474,6 @@
             document.getElementById('admin-pass-input').value = '';
         }
 
-        function clearAllData() {
-            if (confirm("Kya aap saara purana data clear karna chahte hain? Iske baad hi aap naya data paste ya upload kar payenge.")) {
-                trackingData = [];
-                syncToFirebase();
-                alert('Purana data successfully clear kar diya gaya hai. Ab aap naya data paste ya file upload kar sakte hain.');
-            }
-        }
-
         function getUtilColor(valStr) {
             let val = parseFloat(valStr);
             if (isNaN(val)) return 'transparent';
@@ -504,7 +490,6 @@
             return '#86efac'; 
         }
 
-        // Automatic Grand Total Calculator based on active rows
         function calculateGrandTotal() {
             let totalSum = 0;
             let citySum = 0;
@@ -518,9 +503,7 @@
                 nonSobSum += Number(row.nonSob) || 0;
             });
 
-            // Utilization = (sobBookingSum / citySum) * 100
             let utilCalc = citySum > 0 ? ((sobBookingSum / citySum) * 100).toFixed(2) + '%' : '0.00%';
-            // POC = (sobBookingSum / totalSum) * 100
             let pocCalc = totalSum > 0 ? ((sobBookingSum / totalSum) * 100).toFixed(2) + '%' : '0.00%';
 
             return {
@@ -538,7 +521,7 @@
             tbody.innerHTML = '';
 
             if (trackingData.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="7" style="color: #94a3b8; padding: 20px;">No data available. Admin needs to update data.</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="7" style="color: #94a3b8; padding: 20px;">No data available.</td></tr>';
                 return;
             }
 
@@ -576,7 +559,7 @@
             tbody.innerHTML = '';
 
             if (trackingData.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="8" style="color: #94a3b8; padding: 20px;">Table is empty. Paste data, upload file or add rows below.</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="8" style="color: #94a3b8; padding: 20px;">Table is empty.</td></tr>';
             } else {
                 trackingData.forEach((row, index) => {
                     const tr = document.createElement('tr');
@@ -627,8 +610,7 @@
             document.getElementById('new-util').value = '';
             document.getElementById('new-poc').value = '';
 
-            syncToFirebase();
-            alert('Naya Team Leader successfully add ho gaya hai!');
+            saveToSheet();
         }
 
         function saveAdminChanges() {
@@ -648,16 +630,10 @@
                 }
             });
 
-            syncToFirebase();
-            alert('Saare changes successfully save ho gaye hain!');
+            saveToSheet();
         }
 
         function processPastedData() {
-            if (trackingData.length > 0) {
-                alert('⚠️ Error: Purana data maujud hai! Naya data paste karne se pehle upar diye gaye "Clear All Old Data" button par click karke purana data delete karein.');
-                return;
-            }
-
             const rawText = document.getElementById('excel-paste-box').value.trim();
             if (!rawText) {
                 alert('Kripya box mein data paste karein!');
@@ -676,7 +652,7 @@
                 if (cols.length >= 7) {
                     let col0 = cols[0].toLowerCase();
                     if (col0 === 'tl' || col0.includes('team') || col0.includes('grand') || cols[1].toLowerCase().includes('total')) {
-                        return; // Skip headers or grand totals since they are calculated automatically
+                        return; 
                     }
 
                     newParsedData.push({
@@ -694,20 +670,13 @@
             if (newParsedData.length > 0) {
                 trackingData = newParsedData;
                 document.getElementById('excel-paste-box').value = '';
-                syncToFirebase();
-                alert(`Successfully ${newParsedData.length} rows update ho gayi hain!`);
+                saveToSheet();
             } else {
-                alert('Data ka format match nahi hua. Kripya sahi columns copy karein.');
+                alert('Data ka format match nahi hua.');
             }
         }
 
-        // File Upload Processing using SheetJS (.xlsx, .xls, .csv)
         function processFileUpload() {
-            if (trackingData.length > 0) {
-                alert('⚠️ Error: Purana data maujud hai! Naya file upload karne se pehle upar diye gaye "Clear All Old Data" button par click karke purana data delete karein.');
-                return;
-            }
-
             const fileInput = document.getElementById('data-file-input');
             if (fileInput.files.length === 0) {
                 alert('Kripya pehle koi Excel ya CSV file select karein!');
@@ -732,7 +701,7 @@
                         if (cols.length >= 7) {
                             let col0 = cols[0].toLowerCase();
                             if (col0 === 'tl' || col0.includes('team') || col0.includes('grand') || cols[1].toLowerCase().includes('total')) {
-                                return; // Skip headers or grand totals
+                                return;
                             }
 
                             newParsedData.push({
@@ -750,10 +719,9 @@
                     if (newParsedData.length > 0) {
                         trackingData = newParsedData;
                         fileInput.value = '';
-                        syncToFirebase();
-                        alert(`File successfully upload aur parse ho gayi! Total ${newParsedData.length} rows add ki gayi hain.`);
+                        saveToSheet();
                     } else {
-                        alert('File data read nahi ho paya. Kripya ensure karein ki columns sahi order mein hain.');
+                        alert('File data read nahi ho paya.');
                     }
                 } catch (err) {
                     console.error(err);
@@ -767,7 +735,7 @@
         function deleteRow(index) {
             if (confirm(`Kya aap ${trackingData[index].name} ka record hatana chahte hain?`)) {
                 trackingData.splice(index, 1);
-                syncToFirebase();
+                saveToSheet();
             }
         }
     </script>
