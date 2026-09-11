@@ -384,26 +384,6 @@
                 </table>
             </div>
 
-            <h3 style="margin-top: 25px;">Edit Grand Total Values</h3>
-            <div class="table-responsive" style="margin-top: 15px;">
-                <table class="styled-table">
-                    <thead>
-                        <tr>
-                            <th>Label</th>
-                            <th>Total-Booking</th>
-                            <th>SOB City_</th>
-                            <th>SOB-Booking</th>
-                            <th>Non-SOB Booking</th>
-                            <th>SOB Utilization%</th>
-                            <th>SOB POC%</th>
-                        </tr>
-                    </thead>
-                    <tbody id="admin-grand-total-body">
-                        <!-- Dynamic Grand Total Edit Row -->
-                    </tbody>
-                </table>
-            </div>
-
             <button class="btn" style="margin-top: 15px; background-color: var(--success);" onclick="saveAdminChanges()">Save All Changes</button>
         </div>
     </div>
@@ -425,7 +405,6 @@
         const db = firebase.database();
 
         let trackingData = [];
-        let grandTotalData = { total: 0, city: 0, sobBooking: 0, nonSob: 0, util: "-", poc: "-" };
 
         const defaultData = [
             { name: "Simran Prasad", total: 61, city: 54, sobBooking: 33, nonSob: 21, util: "61.11%", poc: "24.24%" },
@@ -438,17 +417,13 @@
             { name: "Neeraj Yadav", total: 92, city: 88, sobBooking: 67, nonSob: 21, util: "76.14%", poc: "25.37%" }
         ];
 
-        const defaultGrandTotal = { total: 1038, city: 957, sobBooking: 662, nonSob: 295, util: "-", poc: "-" };
-
         // Real-time synchronization from Firebase Database
         db.ref('tracker').on('value', (snapshot) => {
             const data = snapshot.val();
             if (data && data.trackingData) {
                 trackingData = data.trackingData;
-                grandTotalData = data.grandTotalData || defaultGrandTotal;
             } else {
                 trackingData = defaultData;
-                grandTotalData = defaultGrandTotal;
                 syncToFirebase();
             }
             renderAll();
@@ -456,8 +431,7 @@
 
         function syncToFirebase() {
             db.ref('tracker').set({
-                trackingData: trackingData,
-                grandTotalData: grandTotalData
+                trackingData: trackingData
             });
         }
 
@@ -509,7 +483,6 @@
         function clearAllData() {
             if (confirm("Kya aap saara purana data clear karna chahte hain? Iske baad hi aap naya data paste ya upload kar payenge.")) {
                 trackingData = [];
-                grandTotalData = { total: 0, city: 0, sobBooking: 0, nonSob: 0, util: "-", poc: "-" };
                 syncToFirebase();
                 alert('Purana data successfully clear kar diya gaya hai. Ab aap naya data paste ya file upload kar sakte hain.');
             }
@@ -529,6 +502,35 @@
             if (val < 22) return '#fca5a5'; 
             if (val < 26) return '#fde047'; 
             return '#86efac'; 
+        }
+
+        // Automatic Grand Total Calculator based on active rows
+        function calculateGrandTotal() {
+            let totalSum = 0;
+            let citySum = 0;
+            let sobBookingSum = 0;
+            let nonSobSum = 0;
+
+            trackingData.forEach(row => {
+                totalSum += Number(row.total) || 0;
+                citySum += Number(row.city) || 0;
+                sobBookingSum += Number(row.sobBooking) || 0;
+                nonSobSum += Number(row.nonSob) || 0;
+            });
+
+            // Utilization = (sobBookingSum / citySum) * 100
+            let utilCalc = citySum > 0 ? ((sobBookingSum / citySum) * 100).toFixed(2) + '%' : '0.00%';
+            // POC = (sobBookingSum / totalSum) * 100
+            let pocCalc = totalSum > 0 ? ((sobBookingSum / totalSum) * 100).toFixed(2) + '%' : '0.00%';
+
+            return {
+                total: totalSum,
+                city: citySum,
+                sobBooking: sobBookingSum,
+                nonSob: nonSobSum,
+                util: utilCalc,
+                poc: pocCalc
+            };
         }
 
         function renderTLPanel() {
@@ -554,6 +556,7 @@
                 tbody.appendChild(tr);
             });
 
+            const grandTotalData = calculateGrandTotal();
             const grandTr = document.createElement('tr');
             grandTr.className = 'grand-total';
             grandTr.innerHTML = `
@@ -590,19 +593,6 @@
                     tbody.appendChild(tr);
                 });
             }
-
-            const gtBody = document.getElementById('admin-grand-total-body');
-            gtBody.innerHTML = `
-                <tr>
-                    <td style="font-weight: bold; text-align: left;">Grand Total</td>
-                    <td><input type="number" class="edit-input" id="gt-total" value="${grandTotalData.total}"></td>
-                    <td><input type="number" class="edit-input" id="gt-city" value="${grandTotalData.city}"></td>
-                    <td><input type="number" class="edit-input" id="gt-sob" value="${grandTotalData.sobBooking}"></td>
-                    <td><input type="number" class="edit-input" id="gt-nonsob" value="${grandTotalData.nonSob}"></td>
-                    <td><input type="text" class="edit-input" id="gt-util" value="${grandTotalData.util}"></td>
-                    <td><input type="text" class="edit-input" id="gt-poc" value="${grandTotalData.poc}"></td>
-                </tr>
-            `;
         }
 
         function addNewTeamLeader() {
@@ -658,17 +648,8 @@
                 }
             });
 
-            grandTotalData = {
-                total: document.getElementById('gt-total').value,
-                city: document.getElementById('gt-city').value,
-                sobBooking: document.getElementById('gt-sob').value,
-                nonSob: document.getElementById('gt-nonsob').value,
-                util: document.getElementById('gt-util').value,
-                poc: document.getElementById('gt-poc').value
-            };
-
             syncToFirebase();
-            alert('Saare changes aur Grand Total successfully save ho gaye hain!');
+            alert('Saare changes successfully save ho gaye hain!');
         }
 
         function processPastedData() {
@@ -695,12 +676,7 @@
                 if (cols.length >= 7) {
                     let col0 = cols[0].toLowerCase();
                     if (col0 === 'tl' || col0.includes('team') || col0.includes('grand') || cols[1].toLowerCase().includes('total')) {
-                        if(col0.includes('grand') || cols[1].toLowerCase().includes('grand')) {
-                            grandTotalData = {
-                                total: cols[1], city: cols[2], sobBooking: cols[3], nonSob: cols[4], util: cols[5] || "-", poc: cols[6] || "-"
-                            };
-                        }
-                        return;
+                        return; // Skip headers or grand totals since they are calculated automatically
                     }
 
                     newParsedData.push({
@@ -756,12 +732,7 @@
                         if (cols.length >= 7) {
                             let col0 = cols[0].toLowerCase();
                             if (col0 === 'tl' || col0.includes('team') || col0.includes('grand') || cols[1].toLowerCase().includes('total')) {
-                                if(col0.includes('grand') || cols[1].toLowerCase().includes('grand')) {
-                                    grandTotalData = {
-                                        total: cols[1], city: cols[2], sobBooking: cols[3], nonSob: cols[4], util: cols[5] || "-", poc: cols[6] || "-"
-                                    };
-                                }
-                                return;
+                                return; // Skip headers or grand totals
                             }
 
                             newParsedData.push({
