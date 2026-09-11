@@ -387,7 +387,6 @@
 
         let trackingData = [];
 
-        // Page load hone par Google Sheet se data fetch karna
         window.onload = function() {
             fetchDataFromSheet();
         };
@@ -474,20 +473,14 @@
             document.getElementById('admin-pass-input').value = '';
         }
 
-        function getUtilColor(valStr) {
-            let val = parseFloat(valStr);
-            if (isNaN(val)) return 'transparent';
-            if (val < 65) return '#fca5a5';
-            if (val < 72) return '#fde047';
-            return '#86efac';
-        }
-
-        function getPocColor(valStr) {
-            let val = parseFloat(valStr);
-            if (isNaN(val)) return 'transparent';
-            if (val < 22) return '#fca5a5'; 
-            if (val < 26) return '#fde047'; 
-            return '#86efac'; 
+        function formatPercentValue(val) {
+            if (val === undefined || val === null || val === '') return '';
+            let s = String(val).trim();
+            let num = Number(s);
+            if (!isNaN(num) && num > 0 && num <= 1) {
+                return (num * 100).toFixed(2) + '%';
+            }
+            return s;
         }
 
         function calculateGrandTotal() {
@@ -533,8 +526,8 @@
                     <td>${row.city}</td>
                     <td>${row.sobBooking}</td>
                     <td>${row.nonSob}</td>
-                    <td style="background-color: ${getUtilColor(row.util)}; font-weight: bold;">${row.util}</td>
-                    <td style="background-color: ${getPocColor(row.poc)}; font-weight: bold;">${row.poc}</td>
+                    <td style="font-weight: bold;">${formatPercentValue(row.util)}</td>
+                    <td style="font-weight: bold;">${formatPercentValue(row.poc)}</td>
                 `;
                 tbody.appendChild(tr);
             });
@@ -598,8 +591,8 @@
                 city: city || 0,
                 sobBooking: sob || 0,
                 nonSob: nonsob || 0,
-                util: util || "0.00%",
-                poc: poc || "0.00%"
+                util: util || "0%",
+                poc: poc || "0%"
             });
 
             document.getElementById('new-name').value = '';
