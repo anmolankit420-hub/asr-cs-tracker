@@ -171,6 +171,12 @@
             font-weight: bold;
         }
 
+        /* Conditional Formatting Highlight Class */
+        .highlight-cell {
+            background-color: #fca5a5 !important; /* Light Red Highlight */
+            font-weight: bold;
+        }
+
         /* Admin Controls Section */
         .admin-controls-grid {
             display: grid;
@@ -526,8 +532,8 @@
                     <td>${row.city}</td>
                     <td>${row.sobBooking}</td>
                     <td>${row.nonSob}</td>
-                    <td style="font-weight: bold;">${formatPercentValue(row.util)}</td>
-                    <td style="font-weight: bold;">${formatPercentValue(row.poc)}</td>
+                    <td class="highlight-cell" style="font-weight: bold;">${formatPercentValue(row.util)}</td>
+                    <td class="highlight-cell" style="font-weight: bold;">${formatPercentValue(row.poc)}</td>
                 `;
                 tbody.appendChild(tr);
             });
