@@ -1,0 +1,804 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ASR - CS TRACKER</title>
+    
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>
+    <!-- SheetJS for Excel/CSV parsing -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+
+    <style>
+        :root {
+            --primary: #2563eb;
+            --primary-dark: #1d4ed8;
+            --bg-color: #f1f5f9;
+            --card-bg: #ffffff;
+            --text-color: #1e293b;
+            --danger: #ef4444;
+            --danger-hover: #dc2626;
+            --success: #16a34a;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        header {
+            position: relative;
+            text-align: center;
+            margin-bottom: 25px;
+            padding-top: 10px;
+        }
+
+        header h1 {
+            color: var(--primary);
+            font-size: 2.2rem;
+            margin-bottom: 5px;
+        }
+
+        header p {
+            color: #64748b;
+        }
+
+        /* Top Right Corner Navigation Tabs */
+        .nav-tabs {
+            position: absolute;
+            top: 0;
+            right: 0;
+            display: flex;
+            gap: 10px;
+        }
+
+        .tab-btn {
+            padding: 8px 16px;
+            font-size: 0.9rem;
+            font-weight: 600;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            background-color: #cbd5e1;
+            color: #334155;
+            transition: all 0.3s ease;
+        }
+
+        .tab-btn.active {
+            background-color: var(--primary);
+            color: white;
+        }
+
+        .panel {
+            display: none;
+            background: var(--card-bg);
+            padding: 25px;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        }
+
+        .panel.active {
+            display: block;
+        }
+
+        h2, h3 {
+            margin-bottom: 15px;
+            color: #0f172a;
+            border-bottom: 2px solid #f1f5f9;
+            padding-bottom: 8px;
+        }
+
+        /* Password Modal Styling */
+        #auth-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(15, 23, 42, 0.8);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+
+        .auth-box {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            width: 350px;
+            text-align: center;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+        }
+
+        .auth-box h3 {
+            margin-bottom: 15px;
+            color: var(--primary);
+            border: none;
+        }
+
+        .auth-box input {
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 15px;
+            border: 1px solid #cbd5e1;
+            border-radius: 6px;
+            font-size: 1rem;
+        }
+
+        /* Data Table Styling */
+        .table-responsive {
+            overflow-x: auto;
+        }
+
+        .styled-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+            text-align: center;
+            font-size: 0.95rem;
+        }
+
+        .styled-table th, .styled-table td {
+            border: 1px solid #cbd5e1;
+            padding: 10px 12px;
+        }
+
+        .styled-table th {
+            background-color: #e2e8f0;
+            color: #0f172a;
+            font-weight: 600;
+        }
+
+        .styled-table tr:nth-child(even) {
+            background-color: #f8fafc;
+        }
+
+        .styled-table tr.grand-total {
+            background-color: #e2e8f0;
+            font-weight: bold;
+        }
+
+        /* Admin Controls Section */
+        .admin-controls-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-bottom: 25px;
+        }
+
+        @media (max-width: 768px) {
+            .admin-controls-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .control-card {
+            background: #f8fafc;
+            padding: 15px;
+            border-radius: 8px;
+            border: 1px dashed #94a3b8;
+        }
+
+        .control-card label {
+            display: block;
+            font-weight: 600;
+            margin-bottom: 8px;
+            font-size: 0.95rem;
+        }
+
+        .control-card textarea, .control-card input[type="file"], .control-card input[type="text"] {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #cbd5e1;
+            border-radius: 6px;
+            font-size: 0.9rem;
+            margin-bottom: 10px;
+            background: white;
+        }
+
+        .control-card textarea {
+            height: 80px;
+        }
+
+        .btn {
+            padding: 10px 20px;
+            background-color: var(--primary);
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: background 0.2s;
+        }
+
+        .btn:hover {
+            background-color: var(--primary-dark);
+        }
+
+        .btn-danger {
+            background-color: var(--danger);
+            padding: 5px 10px;
+            font-size: 0.85rem;
+        }
+        .btn-danger:hover {
+            background-color: var(--danger-hover);
+        }
+
+        .btn-warning {
+            background-color: #d97706;
+            color: white;
+        }
+        .btn-warning:hover {
+            background-color: #b45309;
+        }
+
+        .edit-input {
+            width: 75px;
+            padding: 4px;
+            text-align: center;
+            border: 1px solid #94a3b8;
+            border-radius: 4px;
+        }
+        .edit-input-name {
+            width: 130px;
+            padding: 4px;
+            border: 1px solid #94a3b8;
+            border-radius: 4px;
+        }
+
+        .warning-notice {
+            background: #fef2f2;
+            border-left: 4px solid var(--danger);
+            padding: 10px;
+            margin-bottom: 15px;
+            font-size: 0.9rem;
+            color: #991b1b;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Password Prompt Overlay -->
+    <div id="auth-overlay">
+        <div class="auth-box">
+            <h3>Admin Login</h3>
+            <p style="font-size: 0.85rem; color: #64748b; margin-bottom: 15px;">Enter security password to continue</p>
+            <input type="password" id="admin-pass-input" placeholder="Password">
+            <button class="btn" onclick="verifyPassword()">Login</button>
+            <button class="btn" style="background: #64748b; margin-top: 8px;" onclick="closeAuthModal()">Cancel</button>
+        </div>
+    </div>
+
+    <div class="container">
+        <header>
+            <h1>ASR - CS TRACKER</h1>
+            <p>Live Performance & Hourly Tracking Dashboard</p>
+
+            <!-- Navigation Tabs -->
+            <div class="nav-tabs">
+                <button class="tab-btn active" onclick="switchTab('tl', event)">Team Leader Panel</button>
+                <button class="tab-btn" onclick="requestAdminAccess(event)">Admin Panel</button>
+            </div>
+        </header>
+
+        <!-- Team Leader Panel -->
+        <div id="tl-panel" class="panel active">
+            <h2>Team Leader Performance Tracker</h2>
+            <div class="table-responsive">
+                <table class="styled-table" id="tl-table">
+                    <thead>
+                        <tr>
+                            <th>Team Leader</th>
+                            <th>Total-Booking</th>
+                            <th>SOB City_</th>
+                            <th>SOB-Booking</th>
+                            <th>Non-SOB Booking</th>
+                            <th>SOB Utilization%</th>
+                            <th>SOB POC%</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tl-table-body">
+                        <!-- Dynamic Rows -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Admin Panel -->
+        <div id="admin-panel" class="panel">
+            <h2>Admin Management & Data Sync</h2>
+            
+            <div class="warning-notice">
+                ⚠️ <strong>Strict Rule:</strong> Naya data paste ya upload karne se pehle <strong>"Clear All Old Data"</strong> button dabakar purana data hatana zaroori hai. Bina purana data delete kiye naya data update nahi hoga!
+            </div>
+
+            <div style="margin-bottom: 20px;">
+                <button class="btn btn-warning" onclick="clearAllData()">🗑️ Clear All Old Data (Must before new upload/paste)</button>
+            </div>
+
+            <div class="admin-controls-grid">
+                <!-- Option 1: Paste Text -->
+                <div class="control-card">
+                    <label>⚡ Quick Paste Excel Data:</label>
+                    <textarea id="excel-paste-box" placeholder="Yahan Excel se pura data copy karke direct paste karein..."></textarea>
+                    <button class="btn" onclick="processPastedData()">Parse & Update Data (Paste)</button>
+                </div>
+
+                <!-- Option 2: Upload File (Excel / CSV) -->
+                <div class="control-card">
+                    <label>📁 Upload Excel / CSV File:</label>
+                    <input type="file" id="data-file-input" accept=".xlsx, .xls, .csv">
+                    <button class="btn" style="background-color: var(--success);" onclick="processFileUpload()">Upload & Fetch Data (File)</button>
+                </div>
+            </div>
+
+            <!-- Manual Add Single Row / Team Leader -->
+            <div class="control-card" style="margin-bottom: 20px;">
+                <label>➕ Add New Team Leader Row Manually:</label>
+                <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                    <input type="text" id="new-name" placeholder="Team Leader Name" style="flex: 2; margin-bottom:0;">
+                    <input type="number" id="new-total" placeholder="Total" style="flex: 1; margin-bottom:0;">
+                    <input type="number" id="new-city" placeholder="City" style="flex: 1; margin-bottom:0;">
+                    <input type="number" id="new-sob" placeholder="SOB-Bkg" style="flex: 1; margin-bottom:0;">
+                    <input type="number" id="new-nonsob" placeholder="Non-SOB" style="flex: 1; margin-bottom:0;">
+                    <input type="text" id="new-util" placeholder="Util%" style="flex: 1; margin-bottom:0;">
+                    <input type="text" id="new-poc" placeholder="POC%" style="flex: 1; margin-bottom:0;">
+                    <button class="btn" style="background-color: var(--success);" onclick="addNewTeamLeader()">Add Row</button>
+                </div>
+            </div>
+
+            <h3>Edit / Manage Existing Records</h3>
+            <div class="table-responsive" style="margin-top: 15px;">
+                <table class="styled-table">
+                    <thead>
+                        <tr>
+                            <th>Team Leader</th>
+                            <th>Total-Booking</th>
+                            <th>SOB City_</th>
+                            <th>SOB-Booking</th>
+                            <th>Non-SOB Booking</th>
+                            <th>SOB Utilization%</th>
+                            <th>SOB POC%</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody id="admin-table-body">
+                        <!-- Dynamic Editable Rows -->
+                    </tbody>
+                </table>
+            </div>
+
+            <h3 style="margin-top: 25px;">Edit Grand Total Values</h3>
+            <div class="table-responsive" style="margin-top: 15px;">
+                <table class="styled-table">
+                    <thead>
+                        <tr>
+                            <th>Label</th>
+                            <th>Total-Booking</th>
+                            <th>SOB City_</th>
+                            <th>SOB-Booking</th>
+                            <th>Non-SOB Booking</th>
+                            <th>SOB Utilization%</th>
+                            <th>SOB POC%</th>
+                        </tr>
+                    </thead>
+                    <tbody id="admin-grand-total-body">
+                        <!-- Dynamic Grand Total Edit Row -->
+                    </tbody>
+                </table>
+            </div>
+
+            <button class="btn" style="margin-top: 15px; background-color: var(--success);" onclick="saveAdminChanges()">Save All Changes</button>
+        </div>
+    </div>
+
+    <script>
+        // ================= FIREBASE CONFIGURATION =================
+        const firebaseConfig = {
+            apiKey: "AIzaSyD-YOUR-API-KEY-HERE",
+            authDomain: "asr-cs-tracker.firebaseapp.com",
+            databaseURL: "https://asr-cs-tracker-default-rtdb.firebaseio.com",
+            projectId: "asr-cs-tracker",
+            storageBucket: "asr-cs-tracker.appspot.com",
+            messagingSenderId: "1234567890",
+            appId: "1:1234567890:web:abcdef"
+        };
+
+        // Initialize Firebase
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.database();
+
+        let trackingData = [];
+        let grandTotalData = { total: 0, city: 0, sobBooking: 0, nonSob: 0, util: "-", poc: "-" };
+
+        const defaultData = [
+            { name: "Simran Prasad", total: 61, city: 54, sobBooking: 33, nonSob: 21, util: "61.11%", poc: "24.24%" },
+            { name: "Md Noor Ali", total: 162, city: 149, sobBooking: 94, nonSob: 55, util: "63.09%", poc: "26.60%" },
+            { name: "Jasmine Baxla", total: 244, city: 225, sobBooking: 149, nonSob: 76, util: "66.22%", poc: "26.17%" },
+            { name: "Gulapsa Perween", total: 246, city: 226, sobBooking: 160, nonSob: 66, util: "70.80%", poc: "26.25%" },
+            { name: "Azhar Ansari", total: 8, city: 7, sobBooking: 5, nonSob: 2, util: "71.43%", poc: "20.00%" },
+            { name: "Prakash Kumar", total: 77, city: 75, sobBooking: 54, nonSob: 21, util: "72.00%", poc: "20.37%" },
+            { name: "Kishan Barnwal", total: 148, city: 133, sobBooking: 100, nonSob: 33, util: "75.19%", poc: "25.00%" },
+            { name: "Neeraj Yadav", total: 92, city: 88, sobBooking: 67, nonSob: 21, util: "76.14%", poc: "25.37%" }
+        ];
+
+        const defaultGrandTotal = { total: 1038, city: 957, sobBooking: 662, nonSob: 295, util: "-", poc: "-" };
+
+        // Real-time synchronization from Firebase Database
+        db.ref('tracker').on('value', (snapshot) => {
+            const data = snapshot.val();
+            if (data && data.trackingData) {
+                trackingData = data.trackingData;
+                grandTotalData = data.grandTotalData || defaultGrandTotal;
+            } else {
+                trackingData = defaultData;
+                grandTotalData = defaultGrandTotal;
+                syncToFirebase();
+            }
+            renderAll();
+        });
+
+        function syncToFirebase() {
+            db.ref('tracker').set({
+                trackingData: trackingData,
+                grandTotalData: grandTotalData
+            });
+        }
+
+        function renderAll() {
+            renderTLPanel();
+            renderAdminPanel();
+        }
+
+        function requestAdminAccess(event) {
+            document.getElementById('auth-overlay').style.display = 'flex';
+        }
+
+        function switchTab(tabName, event) {
+            activateTLView();
+        }
+
+        function activateTLView() {
+            document.getElementById('tl-panel').classList.add('active');
+            document.getElementById('admin-panel').classList.remove('active');
+            const buttons = document.querySelectorAll('.tab-btn');
+            buttons[0].classList.add('active');
+            buttons[1].classList.remove('active');
+            renderTLPanel();
+        }
+
+        function verifyPassword() {
+            const pass = document.getElementById('admin-pass-input').value;
+            if (pass === "Asrcs@9876") {
+                document.getElementById('auth-overlay').style.display = 'none';
+                document.getElementById('admin-pass-input').value = '';
+                
+                document.getElementById('admin-panel').classList.add('active');
+                document.getElementById('tl-panel').classList.remove('active');
+                const buttons = document.querySelectorAll('.tab-btn');
+                buttons[1].classList.add('active');
+                buttons[0].classList.remove('active');
+                renderAdminPanel();
+            } else {
+                alert('Authentication Failed. Incorrect Password.');
+                document.getElementById('admin-pass-input').value = '';
+            }
+        }
+
+        function closeAuthModal() {
+            document.getElementById('auth-overlay').style.display = 'none';
+            document.getElementById('admin-pass-input').value = '';
+        }
+
+        function clearAllData() {
+            if (confirm("Kya aap saara purana data clear karna chahte hain? Iske baad hi aap naya data paste ya upload kar payenge.")) {
+                trackingData = [];
+                grandTotalData = { total: 0, city: 0, sobBooking: 0, nonSob: 0, util: "-", poc: "-" };
+                syncToFirebase();
+                alert('Purana data successfully clear kar diya gaya hai. Ab aap naya data paste ya file upload kar sakte hain.');
+            }
+        }
+
+        function getUtilColor(valStr) {
+            let val = parseFloat(valStr);
+            if (isNaN(val)) return 'transparent';
+            if (val < 65) return '#fca5a5';
+            if (val < 72) return '#fde047';
+            return '#86efac';
+        }
+
+        function getPocColor(valStr) {
+            let val = parseFloat(valStr);
+            if (isNaN(val)) return 'transparent';
+            if (val < 22) return '#fca5a5'; 
+            if (val < 26) return '#fde047'; 
+            return '#86efac'; 
+        }
+
+        function renderTLPanel() {
+            const tbody = document.getElementById('tl-table-body');
+            tbody.innerHTML = '';
+
+            if (trackingData.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="7" style="color: #94a3b8; padding: 20px;">No data available. Admin needs to update data.</td></tr>';
+                return;
+            }
+
+            trackingData.forEach(row => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td style="text-align: left; font-weight: 500;">${row.name}</td>
+                    <td>${row.total}</td>
+                    <td>${row.city}</td>
+                    <td>${row.sobBooking}</td>
+                    <td>${row.nonSob}</td>
+                    <td style="background-color: ${getUtilColor(row.util)}; font-weight: bold;">${row.util}</td>
+                    <td style="background-color: ${getPocColor(row.poc)}; font-weight: bold;">${row.poc}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+
+            const grandTr = document.createElement('tr');
+            grandTr.className = 'grand-total';
+            grandTr.innerHTML = `
+                <td style="text-align: left;">Grand Total</td>
+                <td>${grandTotalData.total}</td>
+                <td>${grandTotalData.city}</td>
+                <td>${grandTotalData.sobBooking}</td>
+                <td>${grandTotalData.nonSob}</td>
+                <td>${grandTotalData.util}</td>
+                <td>${grandTotalData.poc}</td>
+            `;
+            tbody.appendChild(grandTr);
+        }
+
+        function renderAdminPanel() {
+            const tbody = document.getElementById('admin-table-body');
+            tbody.innerHTML = '';
+
+            if (trackingData.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="8" style="color: #94a3b8; padding: 20px;">Table is empty. Paste data, upload file or add rows below.</td></tr>';
+            } else {
+                trackingData.forEach((row, index) => {
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `
+                        <td><input type="text" class="edit-input-name" data-index="${index}" data-field="name" value="${row.name}"></td>
+                        <td><input type="number" class="edit-input" data-index="${index}" data-field="total" value="${row.total}"></td>
+                        <td><input type="number" class="edit-input" data-index="${index}" data-field="city" value="${row.city}"></td>
+                        <td><input type="number" class="edit-input" data-index="${index}" data-field="sobBooking" value="${row.sobBooking}"></td>
+                        <td><input type="number" class="edit-input" data-index="${index}" data-field="nonSob" value="${row.nonSob}"></td>
+                        <td><input type="text" class="edit-input" data-index="${index}" data-field="util" value="${row.util}"></td>
+                        <td><input type="text" class="edit-input" data-index="${index}" data-field="poc" value="${row.poc}"></td>
+                        <td><button class="btn btn-danger" onclick="deleteRow(${index})">Delete</button></td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+            }
+
+            const gtBody = document.getElementById('admin-grand-total-body');
+            gtBody.innerHTML = `
+                <tr>
+                    <td style="font-weight: bold; text-align: left;">Grand Total</td>
+                    <td><input type="number" class="edit-input" id="gt-total" value="${grandTotalData.total}"></td>
+                    <td><input type="number" class="edit-input" id="gt-city" value="${grandTotalData.city}"></td>
+                    <td><input type="number" class="edit-input" id="gt-sob" value="${grandTotalData.sobBooking}"></td>
+                    <td><input type="number" class="edit-input" id="gt-nonsob" value="${grandTotalData.nonSob}"></td>
+                    <td><input type="text" class="edit-input" id="gt-util" value="${grandTotalData.util}"></td>
+                    <td><input type="text" class="edit-input" id="gt-poc" value="${grandTotalData.poc}"></td>
+                </tr>
+            `;
+        }
+
+        function addNewTeamLeader() {
+            const name = document.getElementById('new-name').value.trim();
+            const total = document.getElementById('new-total').value.trim();
+            const city = document.getElementById('new-city').value.trim();
+            const sob = document.getElementById('new-sob').value.trim();
+            const nonsob = document.getElementById('new-nonsob').value.trim();
+            const util = document.getElementById('new-util').value.trim();
+            const poc = document.getElementById('new-poc').value.trim();
+
+            if (!name) {
+                alert('Kripya Team Leader ka naam dalein!');
+                return;
+            }
+
+            trackingData.push({
+                name: name,
+                total: total || 0,
+                city: city || 0,
+                sobBooking: sob || 0,
+                nonSob: nonsob || 0,
+                util: util || "0.00%",
+                poc: poc || "0.00%"
+            });
+
+            document.getElementById('new-name').value = '';
+            document.getElementById('new-total').value = '';
+            document.getElementById('new-city').value = '';
+            document.getElementById('new-sob').value = '';
+            document.getElementById('new-nonsob').value = '';
+            document.getElementById('new-util').value = '';
+            document.getElementById('new-poc').value = '';
+
+            syncToFirebase();
+            alert('Naya Team Leader successfully add ho gaya hai!');
+        }
+
+        function saveAdminChanges() {
+            const nameInputs = document.querySelectorAll('.edit-input-name');
+            nameInputs.forEach(input => {
+                const idx = input.getAttribute('data-index');
+                const field = input.getAttribute('data-field');
+                trackingData[idx][field] = input.value;
+            });
+
+            const otherInputs = document.querySelectorAll('.edit-input');
+            otherInputs.forEach(input => {
+                if(input.hasAttribute('data-index')) {
+                    const idx = input.getAttribute('data-index');
+                    const field = input.getAttribute('data-field');
+                    trackingData[idx][field] = input.value;
+                }
+            });
+
+            grandTotalData = {
+                total: document.getElementById('gt-total').value,
+                city: document.getElementById('gt-city').value,
+                sobBooking: document.getElementById('gt-sob').value,
+                nonSob: document.getElementById('gt-nonsob').value,
+                util: document.getElementById('gt-util').value,
+                poc: document.getElementById('gt-poc').value
+            };
+
+            syncToFirebase();
+            alert('Saare changes aur Grand Total successfully save ho gaye hain!');
+        }
+
+        function processPastedData() {
+            if (trackingData.length > 0) {
+                alert('⚠️ Error: Purana data maujud hai! Naya data paste karne se pehle upar diye gaye "Clear All Old Data" button par click karke purana data delete karein.');
+                return;
+            }
+
+            const rawText = document.getElementById('excel-paste-box').value.trim();
+            if (!rawText) {
+                alert('Kripya box mein data paste karein!');
+                return;
+            }
+
+            const lines = rawText.split('\n');
+            let newParsedData = [];
+
+            lines.forEach(line => {
+                let cols = line.split('\t').map(c => c.trim()).filter(c => c !== '');
+                if(cols.length < 7) {
+                    cols = line.split(/[\t\s\xA0]+/).map(c => c.trim()).filter(c => c !== '');
+                }
+
+                if (cols.length >= 7) {
+                    let col0 = cols[0].toLowerCase();
+                    if (col0 === 'tl' || col0.includes('team') || col0.includes('grand') || cols[1].toLowerCase().includes('total')) {
+                        if(col0.includes('grand') || cols[1].toLowerCase().includes('grand')) {
+                            grandTotalData = {
+                                total: cols[1], city: cols[2], sobBooking: cols[3], nonSob: cols[4], util: cols[5] || "-", poc: cols[6] || "-"
+                            };
+                        }
+                        return;
+                    }
+
+                    newParsedData.push({
+                        name: cols[0],
+                        total: cols[1],
+                        city: cols[2],
+                        sobBooking: cols[3],
+                        nonSob: cols[4],
+                        util: cols[5],
+                        poc: cols[6]
+                    });
+                }
+            });
+
+            if (newParsedData.length > 0) {
+                trackingData = newParsedData;
+                document.getElementById('excel-paste-box').value = '';
+                syncToFirebase();
+                alert(`Successfully ${newParsedData.length} rows update ho gayi hain!`);
+            } else {
+                alert('Data ka format match nahi hua. Kripya sahi columns copy karein.');
+            }
+        }
+
+        // File Upload Processing using SheetJS (.xlsx, .xls, .csv)
+        function processFileUpload() {
+            if (trackingData.length > 0) {
+                alert('⚠️ Error: Purana data maujud hai! Naya file upload karne se pehle upar diye gaye "Clear All Old Data" button par click karke purana data delete karein.');
+                return;
+            }
+
+            const fileInput = document.getElementById('data-file-input');
+            if (fileInput.files.length === 0) {
+                alert('Kripya pehle koi Excel ya CSV file select karein!');
+                return;
+            }
+
+            const file = fileInput.files[0];
+            const reader = new FileReader();
+
+            reader.onload = function(e) {
+                try {
+                    const data = new Uint8Array(e.target.result);
+                    const workbook = XLSX.read(data, { type: 'array' });
+                    const firstSheetName = workbook.SheetNames[0];
+                    const worksheet = workbook.Sheets[firstSheetName];
+                    const jsonRows = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+
+                    let newParsedData = [];
+
+                    jsonRows.forEach(row => {
+                        let cols = row.map(c => c !== undefined && c !== null ? String(c).trim() : "").filter(c => c !== "");
+                        if (cols.length >= 7) {
+                            let col0 = cols[0].toLowerCase();
+                            if (col0 === 'tl' || col0.includes('team') || col0.includes('grand') || cols[1].toLowerCase().includes('total')) {
+                                if(col0.includes('grand') || cols[1].toLowerCase().includes('grand')) {
+                                    grandTotalData = {
+                                        total: cols[1], city: cols[2], sobBooking: cols[3], nonSob: cols[4], util: cols[5] || "-", poc: cols[6] || "-"
+                                    };
+                                }
+                                return;
+                            }
+
+                            newParsedData.push({
+                                name: cols[0],
+                                total: cols[1],
+                                city: cols[2],
+                                sobBooking: cols[3],
+                                nonSob: cols[4],
+                                util: cols[5],
+                                poc: cols[6]
+                            });
+                        }
+                    });
+
+                    if (newParsedData.length > 0) {
+                        trackingData = newParsedData;
+                        fileInput.value = '';
+                        syncToFirebase();
+                        alert(`File successfully upload aur parse ho gayi! Total ${newParsedData.length} rows add ki gayi hain.`);
+                    } else {
+                        alert('File data read nahi ho paya. Kripya ensure karein ki columns sahi order mein hain.');
+                    }
+                } catch (err) {
+                    console.error(err);
+                    alert('File parse karne mein error aayi hai.');
+                }
+            };
+
+            reader.readAsArrayBuffer(file);
+        }
+
+        function deleteRow(index) {
+            if (confirm(`Kya aap ${trackingData[index].name} ka record hatana chahte hain?`)) {
+                trackingData.splice(index, 1);
+                syncToFirebase();
+            }
+        }
+    </script>
+</body>
+</html>
