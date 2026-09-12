@@ -483,34 +483,29 @@
             return s;
         }
 
-        // Helper to convert percentage strings like "53.33%" to numeric numbers for color scaling
         function parsePercentToNumber(val) {
             if (!val) return 0;
             let s = String(val).replace('%', '').trim();
             let num = Number(s);
             if (isNaN(num)) return 0;
-            // If value was stored as decimal like 0.53, convert to 53
             if (num > 0 && num <= 1 && !String(val).includes('%')) {
                 num = num * 100;
             }
             return num;
         }
 
-        // Function to calculate smooth Red-Yellow-Green gradient background color
         function getColorScaleStyle(val, min, max) {
-            if (min === max) return 'background-color: #fef08a;'; // default yellow if all same
-            let ratio = (val - min) / (max - min); // 0 to 1
-            ratio = Math.max(0, Math.min(1, ratio)); // clamp between 0 and 1
+            if (min === max) return 'background-color: #fef08a;';
+            let ratio = (val - min) / (max - min);
+            ratio = Math.max(0, Math.min(1, ratio));
 
             let r, g, b;
             if (ratio < 0.5) {
-                // Red to Yellow transition (ratio from 0 to 0.5)
                 let subRatio = ratio * 2;
                 r = 254;
-                g = Math.round(200 + 40 * subRatio); // moves from light red towards yellow
+                g = Math.round(200 + 40 * subRatio);
                 b = 150;
             } else {
-                // Yellow to Green transition (ratio from 0.5 to 1)
                 let subRatio = (ratio - 0.5) * 2;
                 r = Math.round(254 - 130 * subRatio);
                 g = 240;
@@ -554,7 +549,6 @@
                 return;
             }
 
-            // Find min and max for color scaling for both columns
             let utilValues = trackingData.map(r => parsePercentToNumber(formatPercentValue(r.util)));
             let pocValues = trackingData.map(r => parsePercentToNumber(formatPercentValue(r.poc)));
 
